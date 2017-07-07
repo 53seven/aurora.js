@@ -8,36 +8,37 @@ class HTTPSource extends EventEmitter
         if @opts.length
             @length = @opts.length
         @reset()
-        
+
     start: ->
         if @length
             return @loop() unless @inflight
-        
+
         @inflight = true
         @xhr = new XMLHttpRequest()
-        
+
         @xhr.onload = (event) =>
-            @length = parseInt @xhr.getResponseHeader("Content-Length")                
+            @length = parseInt @xhr.getResponseHeader("Content-Length")
             @inflight = false
             @loop()
-        
+
         @xhr.onerror = (err) =>
             @pause()
             @emit 'error', err
-            
+
         @xhr.onabort = (event) =>
             @inflight = false
-        
+
         @xhr.open("HEAD", @url, true)
+        @xhr.withCredentials = true;
         @xhr.send(null)
-        
+
     loop: ->
         if @inflight or not @length
             return @emit 'error', 'Something is wrong in HTTPSource.loop'
-            
+
         @inflight = true
         @xhr = new XMLHttpRequest()
-        
+
         @xhr.onload = (event) =>
             if @xhr.response
                 buf = new Uint8Array(@xhr.response)
@@ -49,13 +50,13 @@ class HTTPSource extends EventEmitter
 
             buffer = new AVBuffer(buf)
             @offset += buffer.length
-            
+
             @emit 'data', buffer
             @emit 'end' if @offset >= @length
 
             @inflight = false
             @loop() unless @offset >= @length
-            
+
         @xhr.onprogress = (event) =>
             @emit 'progress', (@offset + event.loaded) / @length * 100
 
@@ -73,14 +74,15 @@ class HTTPSource extends EventEmitter
         @xhr.setRequestHeader("If-None-Match", "webkit-no-cache")
         @xhr.setRequestHeader("Range", "bytes=#{@offset}-#{endPos}")
         @xhr.overrideMimeType('text/plain; charset=x-user-defined')
+        @xhr.withCredentials = true;
         @xhr.send(null)
-        
+
     pause: ->
         @inflight = false
         @xhr?.abort()
-        
+
     reset: ->
         @pause()
         @offset = 0
-        
+
 module.exports = HTTPSource
